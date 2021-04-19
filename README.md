@@ -2,7 +2,7 @@
 
 ## Author: Kaetlyn Gibson, kaetlyng@uoregon.edu ##
 
-** Description:**
+**Description:**
 A "getting started" project for CIS 322, introduction to software engineering,
 at the University of Oregon. Uses a tiny web server in Python to convey
 understanding of basic web architecture.
