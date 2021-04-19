@@ -18,11 +18,11 @@ import logging   # Better than print statements
 logging.basicConfig(format='%(levelname)s:%(message)s',
                     level=logging.INFO)
 log = logging.getLogger(__name__)
-# Logging level may be overridden by configuration 
+# Logging level may be overridden by configuration
 
 import socket    # Basic TCP/IP communication on the internet
 import _thread   # Response computation runs concurrently with main program
-
+import os # added
 
 def listen(portnum):
     """
@@ -54,6 +54,7 @@ def serve(sock, func):
         to the connected client, running concurrently in its own thread.
     """
     while True:
+        print("==================================================")
         log.info("Attempting to accept a connection on {}".format(sock))
         (clientsocket, address) = sock.accept()
         _thread.start_new_thread(func, (clientsocket,))
@@ -90,9 +91,45 @@ def respond(sock):
     log.info("Request was {}\n***\n".format(request))
 
     parts = request.split()
+
+    # added
+    options = config.configuration()
+    forbidden_values = ("~", "//", "..")
+    fv_count = 0
+    content = ""
+
     if len(parts) > 1 and parts[0] == "GET":
-        transmit(STATUS_OK, sock)
-        transmit(CAT, sock)
+        # get file_name
+        file_name = parts[1][1:]
+        # checking: if page starts with (~ // ..)
+        for val in forbidden_values:
+            if val in file_name:
+                fv_count += 1
+        # checking cont: if 1 or more forbidden values present, 403 status
+        if fv_count > 0:
+            # response: 403 forbidden
+            transmit(STATUS_FORBIDDEN, sock)
+            transmit("<h1>403 Forbidden: STATUS_FORBIDDEN</h1>", sock)
+        else:
+            # checking: if URL does NOT end with name.html or name.css
+            if not file_name.endswith((".html", ".css")):
+                # response: 401 not implemented
+                transmit(STATUS_NOT_IMPLEMENTED, sock)
+                transmit("<h1>401 Not Implemented: STATUS_NOT_IMPLEMENTED</h1>", sock)
+            else:
+                # checking: if name.html NOT in current directory
+                source_path = os.path.join(options.DOCROOT, file_name) # see spew.py
+                if not os.path.isfile(source_path):
+                    # response: 404 not found
+                    transmit(STATUS_NOT_FOUND, sock)
+                    transmit("<h1>404 Not Found: STATUS_NOT_FOUND</h1>", sock)
+                else:
+                    # file is in current directory
+                    # response: content of .html or .ccs file w/ proper http response
+                    with open(source_path, 'r') as file:
+                        content = file.read()
+                    transmit(STATUS_OK, sock)
+                    transmit(content, sock)
     else:
         log.info("Unhandled request: {}".format(request))
         transmit(STATUS_NOT_IMPLEMENTED, sock)
@@ -101,7 +138,6 @@ def respond(sock):
     sock.shutdown(socket.SHUT_RDWR)
     sock.close()
     return
-
 
 def transmit(msg, sock):
     """It might take several sends to get the whole message out"""
